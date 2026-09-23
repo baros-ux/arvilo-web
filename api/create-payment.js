@@ -1,43 +1,57 @@
-export default async (request) => {
-  const headers = { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*' };
-  if (request.method === 'OPTIONS') return new Response('', { status: 204, headers });
-  if (request.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers });
-
-  const serverKey = process.env.MIDTRANS_SERVER_KEY;
-  const env = (process.env.MIDTRANS_ENV || 'sandbox').toLowerCase();
-  if (!serverKey) return new Response(JSON.stringify({ error: 'Payment gateway belum dikonfigurasi di server.' }), { status: 500, headers });
-
-  let body = {};
-  try { body = await request.json(); } catch {}
-  const amount = Number(body.amount || 15000);
-  if (!Number.isFinite(amount) || amount !== 15000) {
-    return new Response(JSON.stringify({ error: 'Nominal pembayaran tidak valid.' }), { status: 400, headers });
-  }
-
-  const orderId = `ARV-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-  const endpoint = env === 'production'
-    ? 'https://api.midtrans.com/v1/payment-links'
-    : 'https://api.sandbox.midtrans.com/v1/payment-links';
-  const auth = Buffer.from(`${serverKey}:`).toString('base64');
-
-  const payload = {
-    transaction_details: { order_id: orderId, gross_amount: amount },
-    item_details: [{ id: 'ARVILO-PORTFOLIO', price: amount, quantity: 1, name: 'Arvilo Portfolio Builder' }],
-    usage_limit: 1
-  };
-
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': `Basic ${auth}` },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.payment_url) {
-      return new Response(JSON.stringify({ error: data.error_messages?.join(' ') || data.message || 'Midtrans gagal membuat payment link.' }), { status: 502, headers });
+ export default async function handler(req, res) {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ message: 'Method Not Allowed' });
     }
-    return new Response(JSON.stringify({ payment_url: data.payment_url, order_id: orderId, payment_id: data.id || null }), { status: 200, headers });
-  } catch (e) {
-    return new Response(JSON.stringify({ error: 'Server tidak dapat terhubung ke Midtrans.' }), { status: 502, headers });
+
+    try {
+      const serverKey = process.env.MIDTRANS_SERVER_KEY;
+      const env = process.env.MIDTRANS_ENV || 'sandbox';
+      const siteUrl = process.env.SITE_URL;
+
+      if (!serverKey) {
+        return res.status(500).json({ error: 'Payment gateway belum dikonfigurasi' });
+      }
+
+      const baseUrl = env === 'production'
+        ? 'https://app.midtrans.com/snap/v1/payment-links'
+        : 'https://app.sandbox.midtrans.com/snap/v1/payment-links';
+
+      const orderId = 'ARV-' + Date.now();
+
+      const response = await fetch(baseUrl, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Basic ' + Buffer.from(serverKey + ':').toString('base64'),
+        },
+        body: JSON.stringify({
+          payment_link: {
+            amount: 15000,
+            payment_link_name: 'Pembayaran Arvilo',
+            payment_link_expiry: 7,
+            payment_link_url: siteUrl,
+            payment_link_amount: {
+              value: 15000,
+              currency: 'IDR'
+            }
+          }
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.payment_link && data.payment_link.payment_link_url) {
+        return res.status(200).json({
+          success: true,
+          url: data.payment_link.payment_link_url
+        });
+      } else {
+        throw new Error(data.message || 'Gagal membuat link pembayaran');
+      }
+
+    } catch (error) {
+      console.error('Midtrans Error:', error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
   }
-};

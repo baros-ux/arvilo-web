@@ -9,7 +9,7 @@ Arvilo memakai Midtrans Payment Link melalui Netlify Functions. Midtrans mengemb
 
 ## 2. Deploy ke Netlify
 Tambahkan Environment Variables:
-- `MIDTRANS_SERVER_KEY` = server key dari Midtrans
+- `MIDTRANS_SERVER_KEY` = Mid-server-p4H24wQUR0seJQmqq0BLsdlD
 - `MIDTRANS_ENV` = `sandbox`
 - `SITE_URL` = URL Netlify yang dapat diakses publik
 

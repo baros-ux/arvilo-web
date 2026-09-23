@@ -1878,9 +1878,25 @@ loadSaved();loadFromHash();normalizeProjects();syncInputs();
   }
   async function createPayment(){
     if(location.protocol==='file:') throw new Error('Buka Arvilo dari alamat online Netlify agar payment gateway aktif.');
-    const res=await fetch('/api/create-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:AMOUNT})});
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok || !data.payment_url){throw new Error(data.error||'Payment gateway belum dikonfigurasi.')}
+    try {
+          const response = await fetch('/api/create-payment', {
+              method: 'POST',
+          });
+
+          if (!response.ok) {
+              throw new Error('Server Error: ' + response.status);
+          }
+
+          const data = await response.json();
+
+          if (data.success && data.url) {
+              window.location.href = data.url;
+          } else {
+              alert('Error Midtrans: ' + (data.message || 'Gagal membuat link'));
+          }
+      } catch (error) {
+          alert('DETAIL ERROR: ' + error.message);
+      }
     try{sessionStorage.setItem('arvilo_payment_order',data.order_id)}catch(e){}
     return data;
   }

@@ -29,9 +29,13 @@ export default async function handler(req, res) {
     : 'https://api.sandbox.midtrans.com/v1/payment-links';
   const auth = Buffer.from(`${serverKey}:`).toString('base64');
 
+  // Setelah bayar, pembeli diarahkan balik ke situs; frontend otomatis cek status & buka editor.
+  const siteUrl = (process.env.SITE_URL || `https://${req.headers.host}`).replace(/\/+$/, '');
+
   const payload = {
     transaction_details: { order_id: orderId, gross_amount: amount },
     item_details: [{ id: 'ARVILO-PORTFOLIO', price: amount, quantity: 1, name: 'Arvilo Portfolio Builder' }],
+    callbacks: { finish: `${siteUrl}/?payment=finish&order_id=${encodeURIComponent(orderId)}` },
     usage_limit: 1
   };
 

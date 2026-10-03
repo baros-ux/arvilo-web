@@ -30,12 +30,13 @@ export default async function handler(req, res) {
   const auth = Buffer.from(`${serverKey}:`).toString('base64');
 
   // Setelah bayar, pembeli diarahkan balik ke situs; frontend otomatis cek status & buka editor.
-  const siteUrl = (process.env.SITE_URL || `https://${req.headers.host}`).replace(/\/+$/, '');
+  let siteUrl = String(process.env.SITE_URL || `https://${req.headers.host}`).trim().replace(/\/+$/, '');
+  if (!/^https?:\/\//i.test(siteUrl)) siteUrl = `https://${siteUrl}`; // SITE_URL tanpa https:// membuat Midtrans mengarah ke halaman 404
 
   const payload = {
     transaction_details: { order_id: orderId, gross_amount: amount },
     item_details: [{ id: 'ARVILO-PORTFOLIO', price: amount, quantity: 1, name: 'Arvilo Portfolio Builder' }],
-    callbacks: { finish: `${siteUrl}/?payment=finish&order_id=${encodeURIComponent(orderId)}` },
+    callbacks: { finish: `${siteUrl}/builder.html?payment=finish&order_id=${encodeURIComponent(orderId)}` },
     usage_limit: 1
   };
 
